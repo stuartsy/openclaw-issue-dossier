@@ -1,4 +1,5 @@
 import { DiffViewer } from '@/components/DiffViewer';
+import { MarkdownToggle } from '@/components/MarkdownToggle';
 
 const diffText = String.raw`diff --git a/src/cron/service/timer.test.ts b/src/cron/service/timer.test.ts
 index e6009c42fd..2a05737994 100644
@@ -44,6 +45,37 @@ const testOutput = String.raw`$ pnpm test -- src/cron/service/timer.test.ts
 ✓ src/cron/service/timer.test.ts (2 tests passed)
 Duration ~22.3s wall clock on local clean clone
 `;
+
+const prDraft = String.raw`## Summary
+Add a human-readable nextAtReadable field to the cron timer debug payload while preserving the existing numeric nextAt field for machine consumers.
+
+## Problem
+Cron timer debug logs currently emit nextAt as a Unix timestamp. That is machine-friendly but awkward for operators reading debug output during scheduling diagnosis.
+
+## Root cause
+The timer arm log in src/cron/service/timer.ts only emits the raw numeric nextAt value, so human operators must manually convert it when reading logs.
+
+## What changed
+- keep nextAt unchanged
+- add nextAtReadable: new Date(nextAt).toISOString() to the same debug payload
+- add a focused timer seam test asserting the readable companion field is emitted
+
+## What did not change
+- no changes to cron job state storage
+- no changes to scheduler behavior or timer calculation
+- no changes to CLI cron list output
+- no change to the canonical nextAt machine-readable field
+
+## Test plan
+- pnpm test -- src/cron/service/timer.test.ts
+- verified targeted timer seam tests pass in clean clone
+
+## Human verification
+- inspect a cron: timer armed debug log entry
+- confirm it now includes both numeric nextAt and ISO nextAtReadable
+
+## Risk / mitigation
+Very low risk. The change is additive and limited to a debug log payload, with focused seam coverage.`;
 
 export default function Page() {
   return (
@@ -108,36 +140,9 @@ export default function Page() {
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Suggested PR draft</div>
-          <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{String.raw`## Summary
-Add a human-readable nextAtReadable field to the cron timer debug payload while preserving the existing numeric nextAt field for machine consumers.
-
-## Problem
-Cron timer debug logs currently emit nextAt as a Unix timestamp. That is machine-friendly but awkward for operators reading debug output during scheduling diagnosis.
-
-## Root cause
-The timer arm log in src/cron/service/timer.ts only emits the raw numeric nextAt value, so human operators must manually convert it when reading logs.
-
-## What changed
-- keep nextAt unchanged
-- add nextAtReadable: new Date(nextAt).toISOString() to the same debug payload
-- add a focused timer seam test asserting the readable companion field is emitted
-
-## What did not change
-- no changes to cron job state storage
-- no changes to scheduler behavior or timer calculation
-- no changes to CLI cron list output
-- no change to the canonical nextAt machine-readable field
-
-## Test plan
-- pnpm test -- src/cron/service/timer.test.ts
-- verified targeted timer seam tests pass in clean clone
-
-## Human verification
-- inspect a cron: timer armed debug log entry
-- confirm it now includes both numeric nextAt and ISO nextAtReadable
-
-## Risk / mitigation
-Very low risk. The change is additive and limited to a debug log payload, with focused seam coverage.`}</pre>
+          <div className="mt-4">
+            <MarkdownToggle markdown={prDraft} />
+          </div>
         </section>
 
         <details className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
