@@ -90,28 +90,28 @@ export default function Page() {
           <div className="mt-4 flex flex-wrap gap-2 text-xs uppercase tracking-[0.18em] text-[#6c6258]">
             <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">branch: stuart/issue-58574-readable-nextat</span>
             <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">commit: 231f500d7a</span>
-            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">status: reviewable</span>
+            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">status: ship per review</span>
           </div>
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-[#3b3128]">
-            Source inspection showed the issue was about the cron timer debug payload rather than CLI list output. That turned this into a textbook additive fix: keep numeric
-            <code className="mx-1 rounded bg-[#f8f2ea] px-1.5 py-0.5 text-[13px]">nextAt</code>
-            intact and add a human-readable ISO companion field.
+            Source inspection showed the issue was about the cron timer debug payload rather than CLI list output. A staff-style review concluded this is a clean,
+            additive change and is ready to ship as-is, with the only caution being to keep unrelated worktree noise like <code className="mx-1 rounded bg-[#f8f2ea] px-1.5 py-0.5 text-[13px]">pnpm-lock.yaml</code>
+            out of any eventual PR.
           </p>
         </header>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Verification</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Review verdict</div>
             <ul className="mt-3 space-y-2 text-[15px] leading-7 text-[#3b3128]">
-              <li>• Targeted timer seam tests pass in the clean clone.</li>
-              <li>• The fix is additive only: no change to stored state, cron scheduling, or CLI output.</li>
-              <li>• Overlap scan did not reveal an open PR directly adding this exact readable debug field.</li>
+              <li>• Independent review verdict: <strong>ship</strong>.</li>
+              <li>• Scope was judged clean, additive, and consistent with the issue request.</li>
+              <li>• Main review note was branch hygiene: do not accidentally include unrelated lockfile noise.</li>
             </ul>
           </div>
           <div className="rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Overlap scan summary</div>
             <p className="mt-3 text-[15px] leading-7 text-[#3b3128]">
-              There is plenty of other cron work in flight, but nothing I found specifically overlaps this additive `nextAtReadable` field on the timer-armed debug log payload.
+              There is plenty of other cron work in flight, but nothing I found specifically overlaps this additive <code>nextAtReadable</code> field on the timer-armed debug log payload.
             </p>
           </div>
         </section>

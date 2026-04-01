@@ -32,6 +32,33 @@ index 48979ceba6..09fb664f8c 100644
 +    );
 +  });
 +
++  it("does not overwrite nonzero cache fields already present on the session entry", async () => {
++    await withTempHome(
++      async (dir) => {
++        const sessionId = "sess-cache-precedence";
++        writeBaselineTranscriptUsageLog({
++          dir,
++          agentId: "main",
++          sessionId,
++        });
++
++        const text = buildTranscriptStatusText({
++          sessionId,
++          sessionKey: "agent:main:main",
++          sessionEntry: {
++            cacheRead: 250,
++            cacheWrite: 50,
++          },
++        });
++
++        const normalized = normalizeTestText(text);
++        expect(normalized).toContain("250 cached");
++        expect(normalized).not.toContain("1.0k cached");
++      },
++      { prefix: "openclaw-status-" },
++    );
++  });
++
    it("reads transcript usage for non-default agents", async () => {
      await withTempHome(
        async (dir) => {
@@ -80,40 +107,44 @@ index 256efc6ebe..224d15bfb5 100644
 `;
 
 const testOutput = String.raw`$ pnpm test -- src/auto-reply/status.test.ts
-[test-parallel] start unit workers=2 filters=1
-✓ src/auto-reply/status.test.ts (targeted file passed)
-Duration ~16.6s wall clock on local clean clone
+[test-parallel] start base workers=1 filters=1
+✓ src/auto-reply/status.test.ts (47 tests passed)
+Duration ~17.0s wall clock on local clean clone
 `;
 
 const prDraft = String.raw`## Summary
-Fix session_status so transcript usage fallback also restores cacheRead/cacheWrite when the live session entry omits those fields.
+Fix /status transcript fallback so cacheRead/cacheWrite survive when persisted session entry usage is incomplete.
 
 ## Problem
-/session_status could fall back to transcript usage for input/output/prompt/total/model, but it did not carry over cacheRead/cacheWrite from the transcript record. That meant cache usage was missing from status output even when the provider had returned cache usage data and the transcript log still had it.
+/session_status could fall back to transcript usage for input/output/prompt/total/model, but it did not carry over cacheRead/cacheWrite from the transcript record. That meant cache usage was missing from status output when the status path relied on transcript fallback and the persisted session entry lacked complete cache fields.
 
 ## Root cause
 readUsageFromSessionLog() returned only input/output/promptTokens/total/model. buildStatusMessage() then used that transcript fallback to hydrate token counts, but never had cacheRead/cacheWrite available to restore.
 
 ## What changed
 - extend readUsageFromSessionLog() to return cacheRead/cacheWrite
-- hydrate cacheRead/cacheWrite from transcript fallback in buildStatusMessage() when current values are missing/zero
+- hydrate cacheRead/cacheWrite from transcript fallback in buildStatusMessage() when current values are absent/zero
 - add a focused regression test proving cache usage now appears from transcript fallback
+- add a precedence regression proving transcript fallback does not overwrite existing nonzero cache fields on the session entry
 
 ## What did not change
 - no changes to provider usage normalization
 - no changes to live session usage collection
 - no changes to status formatting beyond making already-available cache usage survive transcript fallback
+- no broader precedence rewrite between live usage and transcript usage
 
 ## Test plan
 - pnpm test -- src/auto-reply/status.test.ts
 - verified targeted regression covering transcript fallback cache hydration passes in clean clone
+- verified precedence regression covering non-overwrite of existing session-entry cache fields passes in clean clone
 
 ## Human verification
 - reproduce a status path that relies on transcript usage fallback
 - confirm cache line now renders instead of disappearing when only transcript retains cacheRead/cacheWrite
+- confirm existing nonzero session-entry cache values are preserved
 
 ## Risk / mitigation
-Low risk. The patch is limited to transcript fallback plumbing in status assembly and covered by a focused regression test.`;
+Low risk. The patch is limited to transcript fallback plumbing in status assembly and covered by focused regression tests.`;
 
 export default function Page() {
   return (
@@ -127,22 +158,22 @@ export default function Page() {
           <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">#58522 · session_status cache usage transcript fallback</h1>
           <div className="mt-4 flex flex-wrap gap-2 text-xs uppercase tracking-[0.18em] text-[#6c6258]">
             <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">branch: stuart/issue-58522-cache-status</span>
-            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">commit: 93f2ece62a</span>
-            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">status: reviewable</span>
+            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">commit: 00c75682ae</span>
+            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1">status: ready after review pass</span>
           </div>
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-[#3b3128]">
             Root cause confirmed in source: transcript fallback populated input/output/prompt/total/model, but silently dropped cacheRead/cacheWrite.
-            The fix keeps scope narrow by extending only the transcript-fallback plumbing and adding one regression that proves cache lines now render.
+            A staff-style review asked for one extra precedence regression before shipping; that follow-up test is now added and passing.
           </p>
         </header>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Verification</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Review verdict</div>
             <ul className="mt-3 space-y-2 text-[15px] leading-7 text-[#3b3128]">
-              <li>• Targeted test file passes in the clean clone.</li>
-              <li>• No behavior change outside transcript fallback hydration path.</li>
-              <li>• Overlap scan did not reveal an open PR directly solving this same transcript-fallback bug.</li>
+              <li>• Independent review verdict: <strong>patch first</strong>, then ship.</li>
+              <li>• Requested follow-up was a precedence regression proving transcript fallback does not overwrite existing nonzero cache fields.</li>
+              <li>• That follow-up test is now added and passing.</li>
             </ul>
           </div>
           <div className="rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
@@ -163,7 +194,7 @@ export default function Page() {
               </p>
             </div>
             <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c6258]">
-              77 lines in patch
+              110 lines in patch
             </span>
           </div>
           <div className="mt-4">
