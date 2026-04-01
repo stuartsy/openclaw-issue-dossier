@@ -144,6 +144,52 @@ export default function Page() {
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Test output summary</div>
           <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{testOutput}</pre>
         </section>
+
+        <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Suggested PR draft</div>
+          <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{String.raw`## Summary
+Fix session_status so transcript usage fallback also restores cacheRead/cacheWrite when the live session entry omits those fields.
+
+## Problem
+/session_status could fall back to transcript usage for input/output/prompt/total/model, but it did not carry over cacheRead/cacheWrite from the transcript record. That meant cache usage was missing from status output even when the provider had returned cache usage data and the transcript log still had it.
+
+## Root cause
+readUsageFromSessionLog() returned only input/output/promptTokens/total/model. buildStatusMessage() then used that transcript fallback to hydrate token counts, but never had cacheRead/cacheWrite available to restore.
+
+## What changed
+- extend readUsageFromSessionLog() to return cacheRead/cacheWrite
+- hydrate cacheRead/cacheWrite from transcript fallback in buildStatusMessage() when current values are missing/zero
+- add a focused regression test proving cache usage now appears from transcript fallback
+
+## What did not change
+- no changes to provider usage normalization
+- no changes to live session usage collection
+- no changes to status formatting beyond making already-available cache usage survive transcript fallback
+
+## Test plan
+- pnpm test -- src/auto-reply/status.test.ts
+- verified targeted regression covering transcript fallback cache hydration passes in clean clone
+
+## Human verification
+- reproduce a status path that relies on transcript usage fallback
+- confirm cache line now renders instead of disappearing when only transcript retains cacheRead/cacheWrite
+
+## Risk / mitigation
+Low risk. The patch is limited to transcript fallback plumbing in status assembly and covered by a focused regression test.`}</pre>
+        </section>
+
+        <details className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Original bug context</summary>
+          <div className="mt-4 text-[15px] leading-7 text-[#3b3128]">
+            <p>
+              The original issue reported that <code>/session_status</code> was not showing cache-hit tokens even though the provider had returned cache usage data.
+              The useful clue was that other usage fields could still appear via transcript fallback, implying the data was present somewhere in the pipeline but not making it through the status assembly path.
+            </p>
+            <p className="mt-3">
+              This implementation takes the narrowest interpretation of that report: keep the existing fallback design, but make sure cacheRead/cacheWrite are treated like the other usage fields already restored from transcript logs.
+            </p>
+          </div>
+        </details>
       </div>
     </main>
   );

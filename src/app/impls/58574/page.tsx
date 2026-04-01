@@ -105,6 +105,54 @@ export default function Page() {
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Test output summary</div>
           <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{testOutput}</pre>
         </section>
+
+        <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Suggested PR draft</div>
+          <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{String.raw`## Summary
+Add a human-readable nextAtReadable field to the cron timer debug payload while preserving the existing numeric nextAt field for machine consumers.
+
+## Problem
+Cron timer debug logs currently emit nextAt as a Unix timestamp. That is machine-friendly but awkward for operators reading debug output during scheduling diagnosis.
+
+## Root cause
+The timer arm log in src/cron/service/timer.ts only emits the raw numeric nextAt value, so human operators must manually convert it when reading logs.
+
+## What changed
+- keep nextAt unchanged
+- add nextAtReadable: new Date(nextAt).toISOString() to the same debug payload
+- add a focused timer seam test asserting the readable companion field is emitted
+
+## What did not change
+- no changes to cron job state storage
+- no changes to scheduler behavior or timer calculation
+- no changes to CLI cron list output
+- no change to the canonical nextAt machine-readable field
+
+## Test plan
+- pnpm test -- src/cron/service/timer.test.ts
+- verified targeted timer seam tests pass in clean clone
+
+## Human verification
+- inspect a cron: timer armed debug log entry
+- confirm it now includes both numeric nextAt and ISO nextAtReadable
+
+## Risk / mitigation
+Very low risk. The change is additive and limited to a debug log payload, with focused seam coverage.`}</pre>
+        </section>
+
+        <details className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Original bug context</summary>
+          <div className="mt-4 text-[15px] leading-7 text-[#3b3128]">
+            <p>
+              The original issue reported that cron debug output exposed <code>nextAt</code> only as a Unix timestamp and asked either to make it human-readable
+              or to add a duplicate readable field for backward compatibility.
+            </p>
+            <p className="mt-3">
+              After source inspection, the cleanest interpretation was to leave the numeric field untouched and add a companion ISO field in the timer-armed debug payload.
+              That preserves compatibility while solving the operator-readability complaint directly.
+            </p>
+          </div>
+        </details>
       </div>
     </main>
   );
