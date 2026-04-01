@@ -114,10 +114,12 @@ Duration ~17.0s wall clock on local clean clone
 `;
 
 const prDraft = String.raw`## Summary
-- Problem: /status transcript fallback restored token counts and model data, but silently dropped cacheRead/cacheWrite.
-- Why it matters: cache usage could disappear from status output even when it was still present in transcript usage data.
+- Problem: /status transcript fallback restored token counts and model data, but dropped cacheRead/cacheWrite.
+- Why it matters: cache usage could disappear from status output even when it still existed in transcript usage data.
 - What changed: transcript fallback now carries cacheRead/cacheWrite and restores them when current session-entry values are absent/zero.
 - What did NOT change: provider usage normalization, live usage collection, and broader precedence rules remain unchanged.
+
+AI-assisted: yes; author reviewed and verified the final code, tests, and PR framing.
 
 ## Change Type (select all)
 - [x] Bug fix
@@ -139,14 +141,14 @@ const prDraft = String.raw`## Summary
 
 ## Linked Issue/PR
 - Closes #58522
-- Related #N/A
+- Related: none
 - [x] This PR fixes a bug or regression
 
 ## Root Cause / Regression History (if applicable)
 - Root cause: readUsageFromSessionLog() returned only input/output/promptTokens/total/model, so cacheRead/cacheWrite were unavailable to buildStatusMessage() during transcript fallback.
 - Missing detection / guardrail: no regression covered cache usage survival in the transcript fallback path.
-- Prior context (git blame, prior PR, issue, or refactor if known): status code already used transcript fallback for other usage fields; cache fields were simply omitted from the returned shape.
-- Why this regressed now: unknown / pre-existing gap rather than a newly introduced regression in this branch.
+- Prior context (git blame, prior PR, issue, or refactor if known): status code already used transcript fallback for other usage fields; cache fields were omitted from the returned shape.
+- Why this regressed now: unknown; this appears to be a pre-existing gap rather than a regression introduced in this branch.
 - If unknown, what was ruled out: provider normalization and cache formatting paths already supported cache usage correctly.
 
 ## Regression Test Plan (if applicable)
@@ -157,7 +159,7 @@ const prDraft = String.raw`## Summary
   - [ ] Existing coverage already sufficient
 - Target test or file: src/auto-reply/status.test.ts
 - Scenario the test should lock in: transcript fallback restores cache usage when session-entry cache fields are absent, and does not overwrite existing nonzero session-entry cache values.
-- Why this is the smallest reliable guardrail: the bug lives in status assembly plumbing rather than provider normalization or UI formatting alone.
+- Why this is the smallest reliable guardrail: the bug is in the status assembly path, so a focused seam/integration test is enough without needing a live provider session.
 - Existing test that already covers this (if any): none for cache fallback before this change.
 - If no new test is added, why not: N/A
 
@@ -178,7 +180,7 @@ N/A
 ## Repro + Verification
 ### Environment
 - OS: macOS
-- Runtime/container: local clean clone at ~/Developer/openclaw-contrib
+- Runtime/container: local clean clone
 - Model/provider: N/A for targeted regression
 - Integration/channel (if any): N/A
 - Relevant config (redacted): transcript-backed status test fixtures
@@ -196,7 +198,7 @@ N/A
 - Matches expected after the fix.
 
 ## Evidence
-- [x] Failing test/log before + passing after
+- [ ] Failing test/log before + passing after
 - [x] Trace/log snippets
 - [ ] Screenshot/recording
 - [ ] Perf numbers (if relevant)
@@ -283,7 +285,7 @@ export default function Page() {
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Test output summary</div>
           <p className="mt-2 max-w-3xl text-[14px] leading-6 text-[#5b4f44]">
-            Smallest reliable guardrail: this bug lives in the status transcript-fallback assembly seam, so a focused seam/integration test is enough without needing a live provider session.
+            Smallest reliable guardrail: this bug lives in the status assembly path, so a focused seam/integration test is enough without needing a live provider session.
           </p>
           <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{testOutput}</pre>
         </section>

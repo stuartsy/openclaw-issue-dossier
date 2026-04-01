@@ -49,13 +49,15 @@ Duration ~22.3s wall clock on local clean clone
 
 const prDraft = String.raw`## Summary
 - Problem: \`cron: timer armed\` debug logs expose nextAt only as a Unix ms timestamp.
-- Why it matters: humans have to manually convert it during cron scheduling diagnosis.
+- Why it matters: operators have to manually convert it when debugging cron scheduling.
 - What changed: added nextAtReadable as an ISO-8601 companion field while preserving numeric nextAt.
-- What did NOT change: scheduler behavior, cron state, CLI output, and machine-readable nextAt semantics remain unchanged.
+- What did NOT change: scheduler behavior, persisted state, CLI output, and existing nextAt semantics remain unchanged.
+
+AI-assisted: yes; author reviewed and verified the final code, tests, and PR framing.
 
 ## Change Type (select all)
-- [ ] Bug fix
-- [x] Feature
+- [x] Bug fix
+- [ ] Feature
 - [ ] Refactor required for the fix
 - [ ] Docs
 - [ ] Security hardening
@@ -73,15 +75,15 @@ const prDraft = String.raw`## Summary
 
 ## Linked Issue/PR
 - Closes #58574
-- Related #N/A
-- [ ] This PR fixes a bug or regression
+- Related: none
+- [x] This PR fixes a bug or regression
 
 ## Root Cause / Regression History (if applicable)
-- Root cause: the debug payload optimized for machine-readability only and did not include a human-readable duplicate for nextAt.
-- Missing detection / guardrail: no seam test asserted the presence of a readable companion field in the timer-armed debug payload.
+- Root cause: the timer-armed debug payload included only the numeric timestamp.
+- Missing detection / guardrail: no seam test asserted a human-readable companion field on that debug log payload.
 - Prior context (git blame, prior PR, issue, or refactor if known): N/A
 - Why this regressed now: N/A
-- If unknown, what was ruled out: persisted cron state and CLI output were inspected and are not the issue target.
+- If unknown, what was ruled out: persisted cron state and CLI output were inspected and are not part of the issue.
 
 ## Regression Test Plan (if applicable)
 - Coverage level that should have caught this:
@@ -112,7 +114,7 @@ N/A
 ## Repro + Verification
 ### Environment
 - OS: macOS
-- Runtime/container: local clean clone at ~/Developer/openclaw-contrib
+- Runtime/container: local clean clone
 - Model/provider: N/A
 - Integration/channel (if any): N/A
 - Relevant config (redacted): cron timer seam tests only
@@ -129,7 +131,7 @@ N/A
 - Matches expected after the change.
 
 ## Evidence
-- [x] Failing test/log before + passing after
+- [ ] Failing test/log before + passing after
 - [x] Trace/log snippets
 - [ ] Screenshot/recording
 - [ ] Perf numbers (if relevant)
@@ -152,7 +154,7 @@ What you personally verified (not just CI), and how:
 
 ## Risks and Mitigations
 - Risk: consumers might start depending on nextAtReadable once it exists.
-  - Mitigation: keep numeric nextAt unchanged and document nextAtReadable as an additive debug convenience field.
+  - Mitigation: keep numeric nextAt unchanged and document nextAtReadable as an additive debug field.
 - Risk: accidental unrelated worktree noise in PR.
   - Mitigation: verify clean git status before posting and do not include unrelated lockfile changes.`;
 
