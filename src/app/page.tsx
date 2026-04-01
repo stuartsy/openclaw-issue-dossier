@@ -121,18 +121,18 @@ const rerankedCandidates = [
     title: 'log warning when message is dropped due to allow: false',
     url: 'https://github.com/openclaw/openclaw/issues/58570',
     score: '8.9 / 10',
-    verdict: 'Very mergeable operational fix',
+    verdict: 'Strong idea, but less clean in source than it first looked',
     reasoning:
-      'This fits the merged-PR pattern extremely well: one decision point, one observability gap, easy manual repro, low ambiguity, and obvious operator value. The only thing to be careful about is not creating noisy logs under repeated denied traffic.',
+      'On paper this still looks mergeable, but the implementation investigation revealed a messier seam than expected: some channels already emit allow/drop logs, some emit group-policy denials, and the exact issue scope is specifically about resolved route entries with allow:false. That means the practical fix is no longer obviously a single shared patch.',
     lookedAt: [
-      'route resolution / allow:false enforcement path',
-      'config resolution references around blockedByAllow',
-      'warning logger insertion point',
+      'Slack explicit route drop logging in extensions/slack/src/monitor/context.ts',
+      'shared group-access route_not_allowlisted paths',
+      'channel-specific allow / denial logging across Slack, Google Chat, Zalo, etc.',
     ],
     whyAccepted:
-      'Feels like a classic maintainers-will-say-yes bugfix because it improves diagnosability without changing policy behavior.',
+      'Could still land, but only after choosing the exact seam: shared route-binding allow:false logic or a smaller channel-specific consistency patch.',
     caution:
-      'Need to think about log dedupe/rate limiting if this path can fire often.',
+      'Investigated and consciously deprioritized in this sprint because the seam looks more cross-channel and ambiguous than originally expected.',
   },
   {
     tier: 'Top pick',
@@ -142,10 +142,10 @@ const rerankedCandidates = [
     score: '8.7 / 10',
     verdict: 'Extremely safe if implemented additively',
     reasoning:
-      'This is not as “important” as the real bugfixes, but it is highly likely to land if done cleanly because it is easy to review and easy to prove safe. Additive output improvements tend to be maintainer-friendly when they do not break machine consumers.',
+      'This ended up even cleaner than expected after source inspection. The issue is specifically about the debug cron timer payload, not CLI listing output. That makes the fix a tiny additive log-payload change with a very focused timer seam test.',
     lookedAt: [
-      'cron nextAt scheduling/output paths in gateway/cron surfaces',
-      'likely JSON/status/listing output points',
+      'src/cron/service/timer.ts debug payload at timer arm',
+      'src/cron/service/timer.test.ts seam tests with mocked logger',
     ],
     whyAccepted:
       'Almost no policy ambiguity if you add nextAtReadable rather than mutating nextAt semantics.',
@@ -158,18 +158,18 @@ const rerankedCandidates = [
     title: 'startup validation for unresolvable model strings',
     url: 'https://github.com/openclaw/openclaw/issues/58582',
     score: '8.1 / 10',
-    verdict: 'More meaningful product fix, slightly less trivial to land',
+    verdict: 'Still meaningful, but more semantics-heavy in real code than on paper',
     reasoning:
-      'This scores well because it matches merged startup-validation fixes like #58371: reject bad config early rather than letting runtime behavior implode. It is not tiny, but it is still bounded if you scope it to startup/config validation and avoid trying to solve every model-resolution problem in one go.',
+      'The real seam is `src/gateway/server-startup.ts`, especially `prewarmConfiguredPrimaryModel()`, with existing startup tests already in place. But once you are in that code, the key question is not “can we detect it?” — we already can warn — it is “what exact failure behavior do we want?” That makes it more product-semantic than the smaller fixes.',
     lookedAt: [
-      'Unknown model / resolution surfaces',
-      'startup config application paths',
-      'onboarding-generated model string failure pattern',
+      'src/gateway/server-startup.ts prewarmConfiguredPrimaryModel',
+      'src/gateway/server-startup.test.ts startup warmup tests',
+      'existing model-selection / invalid-model behavior in agents/model-selection and cron model formatting tests',
     ],
     whyAccepted:
-      'Maintainable, high-value, easy to defend. Also the repo seems receptive to startup validation fixes when they are narrow and explicit.',
+      'Could land if sharply scoped, but the desired outcome needs a clearer call: warn, fail startup, fail channel startup, or reject earlier in config/onboarding.',
     caution:
-      'Need to avoid over-validating optional/plugin-supplied model configs in a way that rejects legitimate setups.',
+      'Investigated and deferred in this sprint because the code seam is tractable, but the desired startup failure semantics need a clearer product decision before coding.',
   },
   {
     tier: 'Worth doing',
@@ -208,59 +208,82 @@ const rerankedCandidates = [
     caution:
       'You need to define abort semantics, response shape, lifecycle reporting, and legacy hook interactions very carefully.',
   },
+];
+
+const implementationBranches = [
   {
-    tier: 'Tempting but risky',
-    number: 58620,
-    title: 'gateway self-induced restart loop from startup config write',
-    url: 'https://github.com/openclaw/openclaw/issues/58620',
-    score: '6.9 / 10',
-    verdict: 'Important, but higher-risk than it first appears',
-    reasoning:
-      'This one is emotionally compelling and likely very real, but it touches config watching, restart semantics, runtime state writes, and maybe schema boundaries. It is worth solving, but not ideal if your goal is merge-likelihood over heroics.',
-    lookedAt: [
-      'config change detection / restart-required section logic',
-      'startup state writes under gateway.* and meta/wizard/session/skills',
+    issue: '#58522',
+    branch: 'stuart/issue-58522-cache-status',
+    commit: '93f2ece62a',
+    status: 'Ready for Stuart review',
+    summary:
+      'Implemented transcript-fallback hydration for cacheRead/cacheWrite in session status output and added a focused regression test.',
+    inspect: [
+      'src/auto-reply/status.ts',
+      'src/auto-reply/status.test.ts',
     ],
-    whyAccepted:
-      'Could be accepted if someone isolates the exact smallest safe fix, but it is easier to overshoot here.',
-    caution:
-      'This is the kind of bug where a “simple” fix can accidentally weaken reload correctness or paper over a deeper separation-of-state problem.',
+    verify: [
+      'Run: `pnpm test -- src/auto-reply/status.test.ts`',
+      'Look for the new regression proving transcript fallback now renders cache usage text.',
+      'Review that the patch only changes transcript fallback plumbing and not unrelated status logic.',
+    ],
+    notes:
+      'Targeted test passed in the clean clone. Local commit used `--no-verify` because current mainline hook/lint chain has unrelated failures.',
   },
   {
-    tier: 'Tempting but risky',
-    number: 58615,
-    title: 'msteams threads share same session key',
-    url: 'https://github.com/openclaw/openclaw/issues/58615',
-    score: '6.8 / 10',
-    verdict: 'Potentially clean, but channel-specific and higher-stakes to verify',
-    reasoning:
-      'The issue author already did unusually good root-cause analysis, which is promising. But thread/session routing bugs are high-consequence: one mistake means context bleed or session fragmentation. Good candidate if you specifically want a channel bug, not my first choice otherwise.',
-    lookedAt: [
-      'normalizeMSTeamsConversationId logic described by reporter',
-      'resolveThreadSessionKeys as likely fix seam',
+    issue: '#58574',
+    branch: 'stuart/issue-58574-readable-nextat',
+    commit: '231f500d7a',
+    status: 'Ready for Stuart review',
+    summary:
+      'Added additive `nextAtReadable` to the cron timer debug payload and covered it with a focused timer seam test.',
+    inspect: [
+      'src/cron/service/timer.ts',
+      'src/cron/service/timer.test.ts',
     ],
-    whyAccepted:
-      'Better than average for a channel bug because the issue itself already points at the likely seam.',
-    caution:
-      'Needs careful end-to-end reasoning about thread IDs, history loading, and backward compatibility for existing sessions.',
+    verify: [
+      'Run: `pnpm test -- src/cron/service/timer.test.ts`',
+      'Confirm the numeric `nextAt` field remains unchanged and only the companion ISO field was added.',
+      'Review that the patch affects debug log payload only, not stored cron job state or CLI output.',
+    ],
+    notes:
+      'This turned out to be a cleaner target than expected because the issue is about debug log readability, not broad cron behavior.',
   },
   {
-    tier: 'Avoid first',
-    number: 58611,
-    title: 'Telegram duplicate message storm during outages',
-    url: 'https://github.com/openclaw/openclaw/issues/58611',
-    score: '5.9 / 10',
-    verdict: 'Real problem, but not a good first/next contribution',
-    reasoning:
-      'This sounds important, but it crosses webhook ack timing, retry semantics, message dedupe TTL policy, session delivery, and outage behavior. It is exactly the kind of issue that can explode in scope despite sounding conceptually simple.',
-    lookedAt: [
-      'issue cluster around Telegram duplicate message storms and retry loops',
-      'related overlapping reports #58549 and broader failover issues',
+    issue: '#58570',
+    branch: 'stuart/issue-58570-allow-false-warning',
+    commit: 'none',
+    status: 'Investigated, then deprioritized',
+    summary:
+      'The practical seam is less tidy than the issue description suggests. Explicit route allow:false denials and group allowlist denials are unevenly handled across channel implementations.',
+    inspect: [
+      'extensions/slack/src/monitor/context.ts',
+      'src/plugin-sdk/group-access.ts',
+      'channel-specific allow/deny logging paths across Slack/Google Chat/Zalo',
     ],
-    whyAccepted:
-      'Eventually yes, probably, but only if handled by someone willing to own a fairly subtle reliability fix.',
-    caution:
-      'Not the best contribution if the goal is “ship a clean PR soon.”',
+    verify: [
+      'Decide first whether the intended fix is a shared route-binding warning surface or a narrower channel/plugin parity patch.',
+    ],
+    notes:
+      'Dropped for this sprint under the “stop if it starts sprawling” rule.',
+  },
+  {
+    issue: '#58582',
+    branch: 'stuart/issue-58582-startup-model-validation',
+    commit: 'none',
+    status: 'Investigated, then deferred',
+    summary:
+      'The code seam is real and already has tests around startup warmup, but the unresolved question is behavioral semantics: warn-only, fail startup, fail channel startup, or reject earlier during config/onboarding.',
+    inspect: [
+      'src/gateway/server-startup.ts',
+      'src/gateway/server-startup.test.ts',
+      'model-selection / invalid-model tests nearby',
+    ],
+    verify: [
+      'Pick the desired failure behavior before implementing so the PR remains tightly scoped and reviewable.',
+    ],
+    notes:
+      'Deferred rather than forced, because the implementation question is now more about product behavior than code discovery.',
   },
 ];
 
@@ -322,6 +345,48 @@ function CandidateRow({ item }: { item: (typeof rerankedCandidates)[number] }) {
   );
 }
 
+function BranchCard({ item }: { item: (typeof implementationBranches)[number] }) {
+  return (
+    <article className="rounded-[1.8rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[#9b866d]">{item.issue}</div>
+          <h3 className="mt-2 text-2xl font-semibold leading-tight tracking-[-0.03em] text-[#20160f]">{item.branch}</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Pill>{item.status}</Pill>
+          <Pill>{item.commit}</Pill>
+        </div>
+      </div>
+
+      <p className="mt-4 text-[15px] leading-7 text-[#3b3128]">{item.summary}</p>
+
+      <div className="mt-5 grid gap-6 lg:grid-cols-3">
+        <section>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Inspect</div>
+          <ul className="mt-2 space-y-2 text-[14px] leading-6 text-[#3b3128]">
+            {item.inspect.map((entry) => (
+              <li key={entry}>• {entry}</li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">How Stuart can verify</div>
+          <ul className="mt-2 space-y-2 text-[14px] leading-6 text-[#3b3128]">
+            {item.verify.map((entry) => (
+              <li key={entry}>• {entry}</li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Notes</div>
+          <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{item.notes}</p>
+        </section>
+      </div>
+    </article>
+  );
+}
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#f4eee7] text-[#20160f]">
@@ -342,13 +407,12 @@ export default function Home() {
             </div>
 
             <div className="rounded-[2rem] border border-[#d7cdbf] bg-[#fffdf8] p-6">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Fast answer</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Current sprint outcome</div>
               <ul className="mt-4 space-y-4 text-[15px] leading-7 text-[#3b3128]">
-                <li><strong>Best likely-to-land bugfix:</strong> #58522</li>
-                <li><strong>Best pragmatic ops fix:</strong> #58570</li>
-                <li><strong>Safest additive improvement:</strong> #58574</li>
-                <li><strong>Best meaningful product fix:</strong> #58582</li>
-                <li><strong>Best moderate feature:</strong> #58505</li>
+                <li><strong>Ready now:</strong> #58522 and #58574 in local reviewable branches</li>
+                <li><strong>Investigated then dropped:</strong> #58570 as too diffuse for this sprint</li>
+                <li><strong>Investigated then deferred:</strong> #58582 pending clearer product semantics</li>
+                <li><strong>Suggested next review move:</strong> inspect the two ready branches and decide whether to open draft PRs</li>
               </ul>
             </div>
           </div>
@@ -402,20 +466,32 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mt-14">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">What exists locally now</div>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">Implementation branches and next steps for Stuart</h2>
+          </div>
+          <div className="mt-6 space-y-6">
+            {implementationBranches.map((item) => (
+              <BranchCard key={`${item.issue}-${item.branch}`} item={item} />
+            ))}
+          </div>
+        </section>
+
         <section className="mt-14 rounded-[2rem] border border-[#20160f] bg-[#20160f] p-6 text-[#f7efe6] shadow-[0_24px_80px_rgba(32,22,12,0.18)]">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#d6c4b0]">Bottom line</div>
           <div className="mt-4 grid gap-6 lg:grid-cols-3">
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want fast credibility</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do #58522 or #58570. They best match the repository’s actual merge pattern: precise bug, bounded fix, obvious test.</p>
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">Best next action</div>
+              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Inspect #58522 and #58574 first. They are the cleanest local branches and already have focused regression coverage in the clean clone.</p>
             </div>
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want useful but still safe</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do #58574 or #58582. One is tiny and additive; the other is more meaningful but still shaped like a startup validation fix rather than a redesign.</p>
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">What not to force</div>
+              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do not force #58570 or #58582 into PRs just to have more branches. The current investigation results say they need a cleaner seam or a clearer product decision first.</p>
             </div>
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want to avoid traps</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do not start with the duplicate-message storm or the broader LiveSessionModelSwitch cluster unless you intentionally want a more subtle, multi-path reliability fix.</p>
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">Possible next sprint</div>
+              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">If you want a third candidate after reviewing the ready branches, my move would be either a tighter re-scope of #58570 or a switch to #58571 heartbeat disable instead of pushing #58582 prematurely.</p>
             </div>
           </div>
         </section>
