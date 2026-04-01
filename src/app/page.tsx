@@ -221,6 +221,7 @@ const implementationBranches = [
     inspect: [
       'src/auto-reply/status.ts',
       'src/auto-reply/status.test.ts',
+      'Detail page: /impls/58522',
     ],
     verify: [
       'Run: `pnpm test -- src/auto-reply/status.test.ts`',
@@ -240,6 +241,7 @@ const implementationBranches = [
     inspect: [
       'src/cron/service/timer.ts',
       'src/cron/service/timer.test.ts',
+      'Detail page: /impls/58574',
     ],
     verify: [
       'Run: `pnpm test -- src/cron/service/timer.test.ts`',
