@@ -1,3 +1,5 @@
+import { DiffViewer } from '@/components/DiffViewer';
+
 const diffText = String.raw`diff --git a/src/auto-reply/status.test.ts b/src/auto-reply/status.test.ts
 index 48979ceba6..09fb664f8c 100644
 --- a/src/auto-reply/status.test.ts
@@ -122,8 +124,20 @@ export default function Page() {
         </section>
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Rendered diff</div>
-          <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{diffText}</pre>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Rendered diff</div>
+              <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#5b4f44]">
+                GitHub-style rendering with typed line treatment so it is easier to scan what actually changed versus surrounding context.
+              </p>
+            </div>
+            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c6258]">
+              77 lines in patch
+            </span>
+          </div>
+          <div className="mt-4">
+            <DiffViewer diff={diffText} />
+          </div>
         </section>
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">

@@ -1,3 +1,5 @@
+import { DiffViewer } from '@/components/DiffViewer';
+
 const diffText = String.raw`diff --git a/src/cron/service/timer.test.ts b/src/cron/service/timer.test.ts
 index e6009c42fd..2a05737994 100644
 --- a/src/cron/service/timer.test.ts
@@ -83,8 +85,20 @@ export default function Page() {
         </section>
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Rendered diff</div>
-          <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{diffText}</pre>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Rendered diff</div>
+              <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#5b4f44]">
+                Additive patch rendered in a GitHub-style diff presentation so you can quickly validate that only the logging payload and seam assertion changed.
+              </p>
+            </div>
+            <span className="rounded-full border border-[#d8d0c4] bg-[#f7f2eb] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c6258]">
+              37 lines in patch
+            </span>
+          </div>
+          <div className="mt-4">
+            <DiffViewer diff={diffText} />
+          </div>
         </section>
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
