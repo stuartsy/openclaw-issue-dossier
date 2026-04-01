@@ -48,8 +48,14 @@ Duration ~22.3s wall clock on local clean clone
 `;
 
 const prDraft = String.raw`## Summary
-- Problem: ` + "`cron: timer armed`" + ` debug logs expose nextAt only as a Unix ms timestamp.
-- Why it matters: human operators have to manually convert the value during cron scheduling diagnosis.
+- Problem: 
+- Why it matters:
+- What changed:
+- What did NOT change (scope boundary):
+
+### Filled version
+- Problem: \`cron: timer armed\` debug logs expose nextAt only as a Unix ms timestamp.
+- Why it matters: humans have to manually convert it during cron scheduling diagnosis.
 - What changed: added nextAtReadable as an ISO-8601 companion field while preserving numeric nextAt.
 - What did NOT change: scheduler behavior, cron state, CLI output, and machine-readable nextAt semantics remain unchanged.
 
@@ -96,7 +102,7 @@ const prDraft = String.raw`## Summary
 - If no new test is added, why not: N/A
 
 ## User-visible / Behavior Changes
-- Debug logs for ` + "`cron: timer armed`" + ` now include nextAtReadable in ISO-8601 format.
+- Debug logs for \`cron: timer armed\` now include nextAtReadable in ISO-8601 format.
 
 ## Diagram (if applicable)
 N/A
@@ -173,8 +179,7 @@ export default function Page() {
           </div>
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-[#3b3128]">
             Source inspection showed the issue was about the cron timer debug payload rather than CLI list output. A staff-style review concluded this is a clean,
-            additive change and is ready to ship as-is, with the only caution being to keep unrelated worktree noise like <code className="mx-1 rounded bg-[#f8f2ea] px-1.5 py-0.5 text-[13px]">pnpm-lock.yaml</code>
-            out of any eventual PR.
+            additive change and is ready to ship as-is, with the only caution being to keep unrelated worktree noise out of any eventual PR.
           </p>
         </header>
 
@@ -185,6 +190,7 @@ export default function Page() {
               <li>• Independent review verdict: <strong>ship</strong>.</li>
               <li>• Scope was judged clean, additive, and consistent with the issue request.</li>
               <li>• Main review note was branch hygiene: do not accidentally include unrelated lockfile noise.</li>
+              <li>• What I did <strong>not</strong> verify: full gateway manual log capture in a real cron deployment.</li>
             </ul>
           </div>
           <div className="rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
@@ -214,7 +220,24 @@ export default function Page() {
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Test output summary</div>
+          <p className="mt-2 max-w-3xl text-[14px] leading-6 text-[#5b4f44]">
+            Smallest reliable guardrail: the change is only in the timer-armed debug logging seam, so a focused logger assertion in the seam test is sufficient without broader cron coverage.
+          </p>
           <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{testOutput}</pre>
+        </section>
+
+        <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Before / after</div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[1.2rem] border border-[#e4d8ca] bg-[#fcf8f1] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7158]">Before</div>
+              <pre className="mt-2 overflow-x-auto rounded bg-[#20160f] p-3 text-[12px] leading-6 text-[#f7efe6]">cron: timer armed {`{ nextAt: 1775034000000, delayMs: 60000 }`}</pre>
+            </div>
+            <div className="rounded-[1.2rem] border border-[#e4d8ca] bg-[#fcf8f1] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7158]">After</div>
+              <pre className="mt-2 overflow-x-auto rounded bg-[#20160f] p-3 text-[12px] leading-6 text-[#f7efe6]">cron: timer armed {`{ nextAt: 1775034000000, nextAtReadable: "2026-04-01T10:00:00.000Z", delayMs: 60000 }`}</pre>
+            </div>
+          </div>
         </section>
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">

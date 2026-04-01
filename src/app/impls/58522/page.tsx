@@ -114,7 +114,7 @@ Duration ~17.0s wall clock on local clean clone
 `;
 
 const prDraft = String.raw`## Summary
-- Problem: \/status transcript fallback restored token counts and model data, but silently dropped cacheRead/cacheWrite.
+- Problem: /status transcript fallback restored token counts and model data, but silently dropped cacheRead/cacheWrite.
 - Why it matters: cache usage could disappear from status output even when it was still present in transcript usage data.
 - What changed: transcript fallback now carries cacheRead/cacheWrite and restores them when current session-entry values are absent/zero.
 - What did NOT change: provider usage normalization, live usage collection, and broader precedence rules remain unchanged.
@@ -251,6 +251,7 @@ export default function Page() {
               <li>• Independent review verdict: <strong>patch first</strong>, then ship.</li>
               <li>• Requested follow-up was a precedence regression proving transcript fallback does not overwrite existing nonzero cache fields.</li>
               <li>• That follow-up test is now added and passing.</li>
+              <li>• What I did <strong>not</strong> verify: a full live gateway repro against a real provider-backed session.</li>
             </ul>
           </div>
           <div className="rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
@@ -281,7 +282,28 @@ export default function Page() {
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Test output summary</div>
+          <p className="mt-2 max-w-3xl text-[14px] leading-6 text-[#5b4f44]">
+            Smallest reliable guardrail: this bug lives in the status transcript-fallback assembly seam, so a focused seam/integration test is enough without needing a live provider session.
+          </p>
           <pre className="mt-4 overflow-x-auto rounded-[1.2rem] bg-[#20160f] p-5 text-[12px] leading-6 text-[#f7efe6]">{testOutput}</pre>
+        </section>
+
+        <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Before / after</div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[1.2rem] border border-[#e4d8ca] bg-[#fcf8f1] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7158]">Before</div>
+              <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">
+                Status could restore token counts from transcript fallback, but the cache line could still disappear because cacheRead/cacheWrite were dropped before formatting.
+              </p>
+            </div>
+            <div className="rounded-[1.2rem] border border-[#e4d8ca] bg-[#fcf8f1] p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7158]">After</div>
+              <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">
+                Transcript fallback now carries cacheRead/cacheWrite too, so the cache line survives when transcript data is the only complete usage source.
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
