@@ -1,5 +1,6 @@
 import { DiffViewer } from '@/components/DiffViewer';
 import { MarkdownToggle } from '@/components/MarkdownToggle';
+import { PostingGuide } from '@/components/PostingGuide';
 
 const diffText = String.raw`diff --git a/src/cron/service/timer.test.ts b/src/cron/service/timer.test.ts
 index e6009c42fd..2a05737994 100644
@@ -47,35 +48,113 @@ Duration ~22.3s wall clock on local clean clone
 `;
 
 const prDraft = String.raw`## Summary
-Add a human-readable nextAtReadable field to the cron timer debug payload while preserving the existing numeric nextAt field for machine consumers.
+- Problem: ` + "`cron: timer armed`" + ` debug logs expose nextAt only as a Unix ms timestamp.
+- Why it matters: human operators have to manually convert the value during cron scheduling diagnosis.
+- What changed: added nextAtReadable as an ISO-8601 companion field while preserving numeric nextAt.
+- What did NOT change: scheduler behavior, cron state, CLI output, and machine-readable nextAt semantics remain unchanged.
 
-## Problem
-Cron timer debug logs currently emit nextAt as a Unix timestamp. That is machine-friendly but awkward for operators reading debug output during scheduling diagnosis.
+## Change Type (select all)
+- [ ] Bug fix
+- [x] Feature
+- [ ] Refactor required for the fix
+- [ ] Docs
+- [ ] Security hardening
+- [ ] Chore/infra
 
-## Root cause
-The timer arm log in src/cron/service/timer.ts only emits the raw numeric nextAt value, so human operators must manually convert it when reading logs.
+## Scope (select all touched areas)
+- [x] Gateway / orchestration
+- [ ] Skills / tool execution
+- [ ] Auth / tokens
+- [ ] Memory / storage
+- [ ] Integrations
+- [ ] API / contracts
+- [x] UI / DX
+- [ ] CI/CD / infra
 
-## What changed
-- keep nextAt unchanged
-- add nextAtReadable: new Date(nextAt).toISOString() to the same debug payload
-- add a focused timer seam test asserting the readable companion field is emitted
+## Linked Issue/PR
+- Closes #58574
+- Related #N/A
+- [ ] This PR fixes a bug or regression
 
-## What did not change
-- no changes to cron job state storage
-- no changes to scheduler behavior or timer calculation
-- no changes to CLI cron list output
-- no change to the canonical nextAt machine-readable field
+## Root Cause / Regression History (if applicable)
+- Root cause: the debug payload optimized for machine-readability only and did not include a human-readable duplicate for nextAt.
+- Missing detection / guardrail: no seam test asserted the presence of a readable companion field in the timer-armed debug payload.
+- Prior context (git blame, prior PR, issue, or refactor if known): N/A
+- Why this regressed now: N/A
+- If unknown, what was ruled out: persisted cron state and CLI output were inspected and are not the issue target.
 
-## Test plan
-- pnpm test -- src/cron/service/timer.test.ts
-- verified targeted timer seam tests pass in clean clone
+## Regression Test Plan (if applicable)
+- Coverage level that should have caught this:
+  - [ ] Unit test
+  - [x] Seam / integration test
+  - [ ] End-to-end test
+  - [ ] Existing coverage already sufficient
+- Target test or file: src/cron/service/timer.test.ts
+- Scenario the test should lock in: when the timer is armed, the debug payload includes both numeric nextAt and ISO nextAtReadable.
+- Why this is the smallest reliable guardrail: the change is only in the timer-arm logging seam.
+- Existing test that already covers this (if any): existing timer seam test already asserted timer arming behavior and logger interaction.
+- If no new test is added, why not: N/A
 
-## Human verification
-- inspect a cron: timer armed debug log entry
-- confirm it now includes both numeric nextAt and ISO nextAtReadable
+## User-visible / Behavior Changes
+- Debug logs for ` + "`cron: timer armed`" + ` now include nextAtReadable in ISO-8601 format.
 
-## Risk / mitigation
-Very low risk. The change is additive and limited to a debug log payload, with focused seam coverage.`;
+## Diagram (if applicable)
+N/A
+
+## Security Impact (required)
+- New permissions/capabilities? (No)
+- Secrets/tokens handling changed? (No)
+- New/changed network calls? (No)
+- Command/tool execution surface changed? (No)
+- Data access scope changed? (No)
+- If any Yes, explain risk + mitigation: N/A
+
+## Repro + Verification
+### Environment
+- OS: macOS
+- Runtime/container: local clean clone at ~/Developer/openclaw-contrib
+- Model/provider: N/A
+- Integration/channel (if any): N/A
+- Relevant config (redacted): cron timer seam tests only
+
+### Steps
+1. Run \`pnpm test -- src/cron/service/timer.test.ts\`
+2. Inspect the logger assertion on the timer-armed debug payload.
+3. Optionally inspect a live debug log entry after arming a cron timer.
+
+### Expected
+- The debug payload contains both numeric nextAt and readable nextAtReadable.
+
+### Actual
+- Matches expected after the change.
+
+## Evidence
+- [x] Failing test/log before + passing after
+- [x] Trace/log snippets
+- [ ] Screenshot/recording
+- [ ] Perf numbers (if relevant)
+
+## Human Verification (required)
+What you personally verified (not just CI), and how:
+- Verified scenarios: targeted timer seam test passes; logger payload includes both nextAt and nextAtReadable.
+- Edge cases checked: machine-readable nextAt remains present.
+- What you did **not** verify: full gateway manual log capture in a real cron deployment.
+
+## Review Conversations
+- [ ] I replied to or resolved every bot review conversation I addressed in this PR.
+- [ ] I left unresolved only the conversations that still need reviewer or maintainer judgment.
+
+## Compatibility / Migration
+- Backward compatible? (Yes)
+- Config/env changes? (No)
+- Migration needed? (No)
+- If yes, exact upgrade steps: N/A
+
+## Risks and Mitigations
+- Risk: consumers might start depending on nextAtReadable once it exists.
+  - Mitigation: keep numeric nextAt unchanged and document nextAtReadable as an additive debug convenience field.
+- Risk: accidental unrelated worktree noise in PR.
+  - Mitigation: verify clean git status before posting and do not include unrelated lockfile changes.`;
 
 export default function Page() {
   return (
@@ -144,6 +223,8 @@ export default function Page() {
             <MarkdownToggle markdown={prDraft} />
           </div>
         </section>
+
+        <PostingGuide branch="stuart/issue-58574-readable-nextat" verifyCommand="pnpm test -- src/cron/service/timer.test.ts" issueNumber="#58574" />
 
         <details className="mt-8 rounded-[1.6rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
           <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Original bug context</summary>
