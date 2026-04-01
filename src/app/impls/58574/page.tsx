@@ -48,12 +48,6 @@ Duration ~22.3s wall clock on local clean clone
 `;
 
 const prDraft = String.raw`## Summary
-- Problem: 
-- Why it matters:
-- What changed:
-- What did NOT change (scope boundary):
-
-### Filled version
 - Problem: \`cron: timer armed\` debug logs expose nextAt only as a Unix ms timestamp.
 - Why it matters: humans have to manually convert it during cron scheduling diagnosis.
 - What changed: added nextAtReadable as an ISO-8601 companion field while preserving numeric nextAt.
