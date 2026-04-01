@@ -1,229 +1,266 @@
-const easyCandidates = [
+const rubric = [
   {
-    rank: '01',
-    number: 58522,
-    title: 'session_status not showing cache hit tokens despite provider returning cache usage data',
-    url: 'https://github.com/openclaw/openclaw/issues/58522',
-    labels: [],
-    goodFirst: false,
-    verdict: 'Strongest easy bugfix candidate',
-    whyNow:
-      'Very narrow surface area, issue author already isolated a plausible root cause, and the local code anchors line up with the report. High signal, low ambiguity.',
-    problem:
-      'OpenClaw already knows how to normalize cache usage from providers like Anthropic/OpenAI, and it already knows how to render a cache line in /status. The missing behavior appears to be a plumbing bug in the transcript-usage fallback path rather than missing product logic.',
-    codeAreas: [
-      'dist/auth-profiles-B5ypC5S-.js → readUsageFromSessionLog',
-      'dist/auth-profiles-B5ypC5S-.js → buildStatusMessage',
-      'dist/auth-profiles-B5ypC5S-.js → formatCacheLine',
-      'dist/auth-profiles-B5ypC5S-.js → normalizeUsage',
-    ],
-    implementation:
-      'Likely implementation is exactly the kind of patch you want for a first/next contribution: thread cacheRead/cacheWrite through readUsageFromSessionLog(), then allow buildStatusMessage() to hydrate missing cache fields from logUsage the same way it already does for core token counts.',
-    verification:
-      'Good verification story. This should be testable with a tiny transcript fixture or a narrow unit/seam test around status message construction. You can verify by forcing a usage payload with cache fields and asserting the rendered cache line appears.',
-    overlap:
-      'I did not see an open PR already covering this. No obvious overlap risk from the currently visible PR set.',
-    risk:
-      'Low. Mostly status/reporting path. Unlikely to affect core execution unless the status plumbing shares a wider type shape in unexpected places.',
-    recommendation:
-      'If you want one issue that is both credible and shippable quickly, this is my top pick.',
+    name: 'Root cause clarity',
+    weight: 'High',
+    detail:
+      'Can you explain the bug mechanically in one or two sentences? OpenClaw PRs that land tend to say exactly why the bad state happens, not just what users observe.',
   },
   {
-    rank: '02',
-    number: 58574,
-    title: 'readable nextAt value for cron job',
-    url: 'https://github.com/openclaw/openclaw/issues/58574',
-    labels: ['enhancement'],
-    goodFirst: false,
-    verdict: 'Excellent low-risk UX improvement',
-    whyNow:
-      'Small scope, clearly specified, and not entangled with model/runtime correctness.',
-    problem:
-      'The cron subsystem emits or stores nextAt as an epoch timestamp. That is machine-friendly but awkward for operators reading logs or debug output.',
-    codeAreas: [
-      'dist/gateway-cli-DlnlX7IW.js → cron wake scheduling path using nextAt',
-      'cron store serialization / debug output paths (needs exact source lookup in repo)',
-    ],
-    implementation:
-      'Safest move is additive: keep nextAt for compatibility, add nextAtReadable or similar in the relevant output surface(s). Avoid changing storage format unless there is a strong reason. This is a classic DX enhancement where backward compatibility matters more than purity.',
-    verification:
-      'Easy. Snapshot-style tests or JSON-shape tests are enough. Can also verify manually by listing cron jobs or inspecting the relevant status/debug output.',
-    overlap:
-      'No visible overlapping PR from the open PR set I checked.',
-    risk:
-      'Very low if additive. Slightly higher if you try to change the canonical field rather than adding a companion field.',
-    recommendation:
-      'Great if you want a contribution that is obviously useful and unlikely to turn into a rabbit hole.',
+    name: 'Scope boundary',
+    weight: 'High',
+    detail:
+      'The best candidates have a clear “what changed” and “what did not change.” Maintainers seem to reward additive, bounded fixes over opportunistic redesigns.',
   },
   {
-    rank: '03',
-    number: 58570,
-    title: 'Gateway should log warning when message is dropped due to allow: false',
-    url: 'https://github.com/openclaw/openclaw/issues/58570',
-    labels: [],
-    goodFirst: false,
-    verdict: 'Small, pragmatic observability fix',
-    whyNow:
-      'This is exactly the kind of operational bug that makes systems feel haunted. The request is narrowly scoped and product intent is clear: keep fail-closed semantics, improve diagnosability.',
-    problem:
-      'Messages dropped by a policy route with allow: false currently disappear without enough operator signal, making policy-denial and transport/routing failures look similar during incident response.',
-    codeAreas: [
-      'routing / outbound channel resolution path where allow:false is enforced',
-      'config resolution path hinted by dist/config-BWw9Yn0D.js blockedByAllow references',
-      'logger / structured warn emission path',
-    ],
-    implementation:
-      'Find the exact branch where an explicit resolved route is denied by allow:false, emit a structured warning with channel/provider/account/route/reason, and ideally dedupe or rate-limit. The key here is to log at the decision point, not after downstream send failure.',
-    verification:
-      'Moderately easy. Add a focused test that resolves a denied route and assert one warning log entry is emitted with machine-readable reason. Manual repro should also be simple with a temp config.',
-    overlap:
-      'No open PR overlap detected in the sample I reviewed.',
-    risk:
-      'Low if rate-limited. Slight risk of noisy logs if implemented naïvely in high-volume denied channels.',
-    recommendation:
-      'Good low-hanging fruit if you want something with immediate real-world operator value.',
+    name: 'Smallest reliable test',
+    weight: 'High',
+    detail:
+      'The repo’s PR culture heavily favors naming the exact unit/seam test that should have caught the bug. If you can point to one focused regression test, acceptance odds go up.',
   },
   {
-    rank: '04',
-    number: 58582,
-    title: 'Model validation on startup: reject unresolvable model strings before accepting messages',
-    url: 'https://github.com/openclaw/openclaw/issues/58582',
-    labels: [],
-    goodFirst: false,
-    verdict: 'High-value but slightly sharper-edged than the small fixes above',
-    whyNow:
-      'The issue describes a bad official onboarding flow producing an unresolvable model string that then cascades into an outage loop. That is exactly the sort of product-quality issue worth fixing.',
-    problem:
-      'A broken configured model can survive long enough to trigger repeated runtime failures instead of being rejected at config/startup time. The failure mode is catastrophic relative to the size of the root cause.',
-    codeAreas: [
-      'model resolution paths emitting Unknown model',
-      'startup / config load / prewarm logic referenced in CHANGELOG and gateway startup flow',
-      'onboard model selection output path',
-    ],
-    implementation:
-      'There are a few viable scopes. Best likely first patch: validate the configured default model (and perhaps key route-level defaults) during startup/config application, emit a clear error, and refuse to continue into message handling with that bad state. Depending on architecture, there may also be a second patch to sanitize the onboard selection that writes the bad string in the first place.',
-    verification:
-      'Reasonably testable, but not as tiny as the status/cron/logging fixes. You would want one startup/config validation test and one regression scenario proving the gateway does not enter the retry loop with an invalid configured model.',
-    overlap:
-      'Touches adjacent terrain to the broader failover/retry issue cluster, but I did not see an open PR specifically covering this exact startup validation behavior.',
-    risk:
-      'Low-to-medium. Startup validation is usually good, but the tricky part is deciding how broadly to validate without rejecting legitimate optional configs or plugin-provided models too aggressively.',
-    recommendation:
-      'Worth doing, but I would treat it as “easy-medium,” not “tiny.” Good candidate if you want something meaningful but still bounded.',
+    name: 'Ease of human verification',
+    weight: 'Medium',
+    detail:
+      'A candidate is stronger when you can manually verify the behavior without orchestrating a full production stack or waiting for a provider outage.',
+  },
+  {
+    name: 'Blast radius',
+    weight: 'High',
+    detail:
+      'Changes that touch one narrow path, one subsystem, or a few files are much easier to merge than fixes that cross scheduling, sessions, retries, and provider resolution all at once.',
+  },
+  {
+    name: 'Policy / product ambiguity',
+    weight: 'High',
+    detail:
+      'Bugs with low design ambiguity land more easily. Feature requests or behavior changes with multiple plausible semantics are slower unless a maintainer has already blessed one direction.',
+  },
+  {
+    name: 'Overlap with active PRs',
+    weight: 'Medium',
+    detail:
+      'If an open PR is already covering the same ground, the odds that a fresh competing branch lands first are worse. Better to support/review/adapt than duplicate.',
+  },
+  {
+    name: 'Maintainer signal / blessing',
+    weight: 'Medium',
+    detail:
+      'Discussion can help, but only when it actually clarifies desired behavior. Old threads with unresolved bikeshedding are not inherently better than recent issues.',
+  },
+  {
+    name: 'User / operator pain',
+    weight: 'Medium',
+    detail:
+      'Operational bugs, reliability traps, confusing status/reporting gaps, and onboarding footguns all score well because the product value is easy to defend.',
   },
 ];
 
-const moderateCandidates = [
+const mergedPatterns = [
   {
-    rank: '05',
-    number: 58571,
-    title: 'Add agents.defaults.heartbeat configuration option to disable built-in heartbeat',
-    url: 'https://github.com/openclaw/openclaw/issues/58571',
-    labels: [],
-    goodFirst: false,
-    verdict: 'Moderate-sized, high user value, emotionally charged but product-relevant',
-    whyNow:
-      'There is a direct user pain story here, and the requested API is extremely clear: agents.defaults.heartbeat = false. The issue is not asking for a redesign, just a disable path.',
-    problem:
-      'The current heartbeat behavior is too opinionated for some assistant setups and can destroy valuable context. A first-class config off-switch would reduce surprise and align the product with more real deployment patterns.',
-    codeAreas: [
-      'heartbeat config resolution (docs + runtime references)',
-      'areHeartbeatsEnabled / setHeartbeatsEnabled exports in runtime bundle',
-      'scheduler initialization / nextWakeAt scheduling paths',
-    ],
-    implementation:
-      'The likely implementation is a config-resolution change plus scheduler gating. The interesting design question is whether false disables just periodic triggers, or prevents registration entirely. I would strongly prefer full disable semantics over “configured but never fires” hacks, as long as docs and runtime state are consistent.',
-    verification:
-      'Medium difficulty. You need a config-driven regression test proving no periodic heartbeat is scheduled/fired when disabled, plus one proof that existing configured heartbeat behavior remains unchanged when the setting is omitted or enabled.',
-    overlap:
-      'Related to broader heartbeat bugs and frustrations, including older critical bug reports. I did not see an open PR covering this specific config addition.',
-    risk:
-      'Medium. Scheduler/config changes can have weird edge effects, and heartbeat behavior touches user expectations. Still tractable.',
-    recommendation:
-      'Strong moderate candidate, especially because we already understand the user need deeply.',
+    pr: '#22622',
+    title: 'skip auth profile cooldown for timeout failures',
+    takeaway:
+      'Classic mergeable shape: one clean behavioral correction, one obvious root cause, tiny diff, existing tests plus a narrow behavioral guard.',
   },
   {
-    rank: '06',
-    number: 58505,
-    title: 'Allow before_prompt_build hook to abort LLM call and return a custom response',
-    url: 'https://github.com/openclaw/openclaw/issues/58505',
-    labels: ['enhancement'],
-    goodFirst: false,
-    verdict: 'Best moderate feature if you want something architectural but still crisp',
-    whyNow:
-      'The issue is well-written, the failure mode is credible, and the requested contract is concrete. It addresses a real limitation in plugin determinism, not just convenience.',
-    problem:
-      'Prompt-mutation hooks can influence the LLM call, but they cannot deterministically prevent it. That leaves plugin developers without a reliable hard-block equivalent for text generation, even though tool calls have one.',
-    codeAreas: [
-      'dist/auth-profiles-B5ypC5S-.js → hook runner for before_prompt_build',
-      'legacy before_agent_start merge path',
-      'before_tool_call block semantics as design precedent',
-      'embedded runner path around prompt build and session.prompt invocation',
-    ],
-    implementation:
-      'The clean design is to extend the hook result contract with abort and abortResponse, then intercept that before session.prompt executes. The subtle work is making sure all downstream lifecycle/reporting paths still emit coherent end-state data and that the behavior composes correctly with legacy before_agent_start.',
-    verification:
-      'Medium. You want deterministic hook-level tests proving zero LLM invocation, returned response delivery, and distinguishable end reason. There should also be coverage for omitted abortResponse default behavior.',
-    overlap:
-      'No overlapping open PR detected in the sample I reviewed.',
-    risk:
-      'Medium. This touches plugin contracts and the core agent loop, so behavior must be crisp. But the requested surface area is still relatively contained.',
-    recommendation:
-      'Excellent moderate-sized contribution if you want something respected by plugin authors and not just a tiny polish fix.',
+    pr: '#23202',
+    title: 'prevent Telegram preview stream cross-edit race',
+    takeaway:
+      'Still bounded, but more sophisticated. What made it strong was the very precise race description and explicit regression tests for the two bad interleavings.',
   },
   {
-    rank: '07',
-    number: 58583,
-    title: 'Log rotation: implement proper rotation instead of suppression at 500MB',
-    url: 'https://github.com/openclaw/openclaw/issues/58583',
-    labels: [],
-    goodFirst: false,
-    verdict: 'Useful, but partially contested by an already-open PR',
-    whyNow:
-      'Operationally important. The current suppression behavior is bad under error storms because the system goes dark exactly when you need logs most.',
-    problem:
-      'The current cap prevents disk exhaustion but does so by suppressing writes entirely after the cap, which destroys diagnosis during active failures.',
-    codeAreas: [
-      'src/logging/logger.ts (per PR #58621)',
-      'logging.maxFileBytes docs/config behavior',
-    ],
-    implementation:
-      'Implement size-based rolling files with retention rather than suppression. The existing PR suggests this can be done with a relatively compact change in logger.ts.',
-    verification:
-      'Medium. Needs an integration-ish logger test or controlled temp-file scenario proving rollover and continued writability after cap.',
-    overlap:
-      'Direct overlap with open PR #58621 by jyotimahapatra. That PR is small and already points at logger.ts. If you want this area, I would review/support/adapt that effort rather than start from scratch.',
-    risk:
-      'Medium. Logging changes can be deceptively cross-platform and may need care around file handles/rename semantics.',
-    recommendation:
-      'Good topic, but not my first recommendation for a fresh branch because there is already active overlap.',
-  },
-];
-
-const adjacentPrs = [
-  {
-    number: 58621,
-    title: 'add support for size based log file rolling update',
-    url: 'https://github.com/openclaw/openclaw/pull/58621',
-    note: 'Directly overlaps issue #58583. Small PR, single file: src/logging/logger.ts.',
+    pr: '#58224',
+    title: 'drop auth headers on cross-origin redirects',
+    takeaway:
+      'Excellent example of staff-level PR hygiene: root cause, prior hardening context, exact test file, exact scenario, explicit scope boundary, and risk discussion.',
   },
   {
-    number: 58589,
-    title: 'live session model switch no longer blocks failover',
-    url: 'https://github.com/openclaw/openclaw/pull/58589',
-    note: 'Relevant context if you touch the broader model retry/fallback cluster, but not directly overlapping the easier picks.',
+    pr: '#58371',
+    title: 'reject mixed trusted-proxy token config',
+    takeaway:
+      'Strong startup-validation style fix. Narrow entry point, easy test, obvious operator value, and low ambiguity.',
   },
   {
-    number: 58624,
-    title: 'resolve relative MEDIA paths against agent workspace',
-    url: 'https://github.com/openclaw/openclaw/pull/58624',
-    note: 'Nice example of the kind of compact, testable bugfix that tends to land well.',
-  },
-  {
-    number: 58502,
+    pr: '#58502',
     title: 'skip restart when config.patch has no actual changes',
-    url: 'https://github.com/openclaw/openclaw/pull/58502',
-    note: 'Another good model for low-blast-radius OpenClaw fixes: sharp root cause, focused test, clear behavior delta.',
+    takeaway:
+      'A near-perfect “likely to land” shape: user-visible pain, tiny blast radius, one very defensible guardrail, and a compact regression test.',
+  },
+  {
+    pr: '#58624',
+    title: 'resolve relative MEDIA paths against agent workspace',
+    takeaway:
+      'Not merged yet, but an ideal model for PR structure. This is how you should write an OpenClaw fix PR if you want reviewers to trust it quickly.',
+  },
+];
+
+const rerankedCandidates = [
+  {
+    tier: 'Top pick',
+    number: 58522,
+    title: 'session_status not showing cache hit tokens',
+    url: 'https://github.com/openclaw/openclaw/issues/58522',
+    score: '9.2 / 10',
+    verdict: 'Best combination of low effort and high mergeability',
+    reasoning:
+      'This still looks like the strongest candidate after applying the rubric. It has clear user value, minimal product ambiguity, a narrow implementation hypothesis, and a straightforward verification story. It also resembles the sort of status/reporting bug that maintainers can review quickly because the risk is mostly limited to plumbing and rendering.',
+    lookedAt: [
+      'readUsageFromSessionLog',
+      'buildStatusMessage',
+      'formatCacheLine',
+      'normalizeUsage',
+    ],
+    whyAccepted:
+      'Likely to be accepted because it is additive/fix-oriented, low-blast-radius, easy to test, and not socially contested.',
+    caution:
+      'Main risk is only that the actual missing field is one layer earlier/later than expected, but that still feels manageable.',
+  },
+  {
+    tier: 'Top pick',
+    number: 58570,
+    title: 'log warning when message is dropped due to allow: false',
+    url: 'https://github.com/openclaw/openclaw/issues/58570',
+    score: '8.9 / 10',
+    verdict: 'Very mergeable operational fix',
+    reasoning:
+      'This fits the merged-PR pattern extremely well: one decision point, one observability gap, easy manual repro, low ambiguity, and obvious operator value. The only thing to be careful about is not creating noisy logs under repeated denied traffic.',
+    lookedAt: [
+      'route resolution / allow:false enforcement path',
+      'config resolution references around blockedByAllow',
+      'warning logger insertion point',
+    ],
+    whyAccepted:
+      'Feels like a classic maintainers-will-say-yes bugfix because it improves diagnosability without changing policy behavior.',
+    caution:
+      'Need to think about log dedupe/rate limiting if this path can fire often.',
+  },
+  {
+    tier: 'Top pick',
+    number: 58574,
+    title: 'readable nextAt for cron jobs',
+    url: 'https://github.com/openclaw/openclaw/issues/58574',
+    score: '8.7 / 10',
+    verdict: 'Extremely safe if implemented additively',
+    reasoning:
+      'This is not as “important” as the real bugfixes, but it is highly likely to land if done cleanly because it is easy to review and easy to prove safe. Additive output improvements tend to be maintainer-friendly when they do not break machine consumers.',
+    lookedAt: [
+      'cron nextAt scheduling/output paths in gateway/cron surfaces',
+      'likely JSON/status/listing output points',
+    ],
+    whyAccepted:
+      'Almost no policy ambiguity if you add nextAtReadable rather than mutating nextAt semantics.',
+    caution:
+      'Do not break existing consumers by replacing the canonical machine timestamp field.',
+  },
+  {
+    tier: 'Worth doing',
+    number: 58582,
+    title: 'startup validation for unresolvable model strings',
+    url: 'https://github.com/openclaw/openclaw/issues/58582',
+    score: '8.1 / 10',
+    verdict: 'More meaningful product fix, slightly less trivial to land',
+    reasoning:
+      'This scores well because it matches merged startup-validation fixes like #58371: reject bad config early rather than letting runtime behavior implode. It is not tiny, but it is still bounded if you scope it to startup/config validation and avoid trying to solve every model-resolution problem in one go.',
+    lookedAt: [
+      'Unknown model / resolution surfaces',
+      'startup config application paths',
+      'onboarding-generated model string failure pattern',
+    ],
+    whyAccepted:
+      'Maintainable, high-value, easy to defend. Also the repo seems receptive to startup validation fixes when they are narrow and explicit.',
+    caution:
+      'Need to avoid over-validating optional/plugin-supplied model configs in a way that rejects legitimate setups.',
+  },
+  {
+    tier: 'Worth doing',
+    number: 58571,
+    title: 'disable built-in heartbeat cleanly',
+    url: 'https://github.com/openclaw/openclaw/issues/58571',
+    score: '7.3 / 10',
+    verdict: 'Good moderate candidate, but more product semantics involved',
+    reasoning:
+      'This has genuine user value and a clear requested API, but it is still more behaviorally significant than the small bugfixes. It affects scheduler expectations and config semantics, which means more review surface and more room for maintainers to have opinions.',
+    lookedAt: [
+      'heartbeat enablement / scheduler gate exports',
+      'config resolution and scheduler initialization paths',
+    ],
+    whyAccepted:
+      'Likely accepted if kept very crisp: one config switch, one disabling semantic, one set of tests.',
+    caution:
+      'Easier to derail into “how should heartbeat fundamentally work?” discussion if not tightly scoped.',
+  },
+  {
+    tier: 'Worth doing',
+    number: 58505,
+    title: 'allow before_prompt_build hook to abort LLM call and return response',
+    url: 'https://github.com/openclaw/openclaw/issues/58505',
+    score: '7.1 / 10',
+    verdict: 'Best moderate feature, but definitely not low-hanging fruit',
+    reasoning:
+      'This is probably the most interesting medium feature on the board, but it loses points on mergeability relative to the bugfixes because it extends a core plugin contract. That means more subtle review questions even if the idea is good.',
+    lookedAt: [
+      'before_prompt_build hook runner',
+      'before_tool_call block semantics as precedent',
+      'embedded runner around session.prompt execution',
+    ],
+    whyAccepted:
+      'Could still land if the contract is crisp and the tests are excellent, but it is not the path of least resistance.',
+    caution:
+      'You need to define abort semantics, response shape, lifecycle reporting, and legacy hook interactions very carefully.',
+  },
+  {
+    tier: 'Tempting but risky',
+    number: 58620,
+    title: 'gateway self-induced restart loop from startup config write',
+    url: 'https://github.com/openclaw/openclaw/issues/58620',
+    score: '6.9 / 10',
+    verdict: 'Important, but higher-risk than it first appears',
+    reasoning:
+      'This one is emotionally compelling and likely very real, but it touches config watching, restart semantics, runtime state writes, and maybe schema boundaries. It is worth solving, but not ideal if your goal is merge-likelihood over heroics.',
+    lookedAt: [
+      'config change detection / restart-required section logic',
+      'startup state writes under gateway.* and meta/wizard/session/skills',
+    ],
+    whyAccepted:
+      'Could be accepted if someone isolates the exact smallest safe fix, but it is easier to overshoot here.',
+    caution:
+      'This is the kind of bug where a “simple” fix can accidentally weaken reload correctness or paper over a deeper separation-of-state problem.',
+  },
+  {
+    tier: 'Tempting but risky',
+    number: 58615,
+    title: 'msteams threads share same session key',
+    url: 'https://github.com/openclaw/openclaw/issues/58615',
+    score: '6.8 / 10',
+    verdict: 'Potentially clean, but channel-specific and higher-stakes to verify',
+    reasoning:
+      'The issue author already did unusually good root-cause analysis, which is promising. But thread/session routing bugs are high-consequence: one mistake means context bleed or session fragmentation. Good candidate if you specifically want a channel bug, not my first choice otherwise.',
+    lookedAt: [
+      'normalizeMSTeamsConversationId logic described by reporter',
+      'resolveThreadSessionKeys as likely fix seam',
+    ],
+    whyAccepted:
+      'Better than average for a channel bug because the issue itself already points at the likely seam.',
+    caution:
+      'Needs careful end-to-end reasoning about thread IDs, history loading, and backward compatibility for existing sessions.',
+  },
+  {
+    tier: 'Avoid first',
+    number: 58611,
+    title: 'Telegram duplicate message storm during outages',
+    url: 'https://github.com/openclaw/openclaw/issues/58611',
+    score: '5.9 / 10',
+    verdict: 'Real problem, but not a good first/next contribution',
+    reasoning:
+      'This sounds important, but it crosses webhook ack timing, retry semantics, message dedupe TTL policy, session delivery, and outage behavior. It is exactly the kind of issue that can explode in scope despite sounding conceptually simple.',
+    lookedAt: [
+      'issue cluster around Telegram duplicate message storms and retry loops',
+      'related overlapping reports #58549 and broader failover issues',
+    ],
+    whyAccepted:
+      'Eventually yes, probably, but only if handled by someone willing to own a fairly subtle reliability fix.',
+    caution:
+      'Not the best contribution if the goal is “ship a clean PR soon.”',
   },
 ];
 
@@ -235,65 +272,42 @@ function Pill({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CandidateCard({ item }: { item: (typeof easyCandidates)[number] | (typeof moderateCandidates)[number] }) {
+function CandidateRow({ item }: { item: (typeof rerankedCandidates)[number] }) {
   return (
-    <article className="rounded-[2rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_20px_60px_rgba(32,22,12,0.06)]">
+    <article className="rounded-[1.8rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[#9b866d]">candidate {item.rank}</div>
-          <h3 className="mt-3 max-w-3xl text-2xl font-semibold leading-tight tracking-[-0.03em] text-[#20160f]">
+          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-[#9b866d]">{item.tier}</div>
+          <h3 className="mt-2 text-2xl font-semibold leading-tight tracking-[-0.03em] text-[#20160f]">
             #{item.number} · {item.title}
           </h3>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Pill>{item.score}</Pill>
           <Pill>{item.verdict}</Pill>
-          {item.labels.map((label) => (
-            <Pill key={label}>{label}</Pill>
-          ))}
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <section>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Why this is interesting</div>
-          <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.whyNow}</p>
-        </section>
-        <section>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Recommendation</div>
-          <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.recommendation}</p>
-        </section>
-      </div>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="mt-5 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-5">
           <section>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Problem framing</div>
-            <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.problem}</p>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Why this re-ranked where it did</div>
+            <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.reasoning}</p>
           </section>
           <section>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Likely implementation shape</div>
-            <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.implementation}</p>
-          </section>
-          <section>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Verification and confidence</div>
-            <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.verification}</p>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Why it would likely be accepted</div>
+            <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">{item.whyAccepted}</p>
           </section>
         </div>
-
-        <aside className="rounded-[1.5rem] border border-[#e4d8ca] bg-[#f8f2ea] p-5">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Code areas already inspected</div>
+        <aside className="rounded-[1.4rem] border border-[#e4d8ca] bg-[#f8f2ea] p-5">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Code / issue surfaces already examined</div>
           <ul className="mt-3 space-y-2 text-[14px] leading-6 text-[#3b3128]">
-            {item.codeAreas.map((area) => (
-              <li key={area}>• {area}</li>
+            {item.lookedAt.map((entry) => (
+              <li key={entry}>• {entry}</li>
             ))}
           </ul>
-
-          <div className="mt-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Overlap / coordination</div>
-          <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{item.overlap}</p>
-
-          <div className="mt-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Risk profile</div>
-          <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{item.risk}</p>
-
+          <div className="mt-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Main caution</div>
+          <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{item.caution}</p>
           <a
             href={item.url}
             target="_blank"
@@ -319,119 +333,89 @@ export default function Home() {
                 briefing dossier · openclaw contribution candidates
               </div>
               <h1 className="mt-6 max-w-4xl text-[clamp(2.8rem,6vw,5.8rem)] font-semibold leading-[0.94] tracking-[-0.06em] text-[#20160f]">
-                A staff-level shortlist of OpenClaw issues worth Stuart’s time.
+                Which OpenClaw issues are actually worth solving — and likely to land?
               </h1>
               <p className="mt-6 max-w-3xl text-[17px] leading-8 text-[#463b31]">
-                This is not a generic GitHub dump. It is a deliberately filtered set of candidate issues and adjacent PR context,
-                written as an engineering briefing: what to implement, where the code likely lives, how hard it is to verify,
-                what overlap exists, and which items look like clean wins versus subtle traps.
+                This pass upgrades the earlier shortlist into a contribution strategy memo: what the repo seems to reward,
+                what outsider-merged PRs have in common, and a re-ranked candidate set scored against an explicit mergeability rubric rather than intuition alone.
               </p>
             </div>
 
             <div className="rounded-[2rem] border border-[#d7cdbf] bg-[#fffdf8] p-6">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Executive summary</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Fast answer</div>
               <ul className="mt-4 space-y-4 text-[15px] leading-7 text-[#3b3128]">
-                <li>
-                  <strong>Best easy bugfix:</strong> <span className="font-medium">#58522</span> session status cache usage.
-                </li>
-                <li>
-                  <strong>Best low-risk enhancement:</strong> <span className="font-medium">#58574</span> readable cron <code>nextAt</code>.
-                </li>
-                <li>
-                  <strong>Best pragmatic observability fix:</strong> <span className="font-medium">#58570</span> log dropped messages on <code>allow: false</code>.
-                </li>
-                <li>
-                  <strong>Best medium-value product fix:</strong> <span className="font-medium">#58582</span> startup model validation.
-                </li>
-                <li>
-                  <strong>Best moderate feature:</strong> <span className="font-medium">#58505</span> hook-level abort before LLM call.
-                </li>
+                <li><strong>Best likely-to-land bugfix:</strong> #58522</li>
+                <li><strong>Best pragmatic ops fix:</strong> #58570</li>
+                <li><strong>Safest additive improvement:</strong> #58574</li>
+                <li><strong>Best meaningful product fix:</strong> #58582</li>
+                <li><strong>Best moderate feature:</strong> #58505</li>
               </ul>
             </div>
           </div>
         </header>
 
         <section className="mt-10 rounded-[2rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Method</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">
-                I pulled the live GitHub issue/PR metadata, then did targeted codebase inspection against local OpenClaw builds to anchor each recommendation in specific runtime surfaces rather than issue-title vibes.
-              </p>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Decision framework</div>
+              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">Issue selection rubric</h2>
             </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">What “already looked at” means</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">
-                For the top candidates, I identified real function/area names in the shipped code paths. This is enough to estimate implementation shape and verification cost, but not yet a full branch-level code review of every edge case.
-              </p>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">What I would do next before coding</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#3b3128]">
-                Pick one or two candidates, inspect the exact source files in the repo rather than the bundled dist only, check for nearby tests, and then decide whether to write a narrow fix or coordinate around overlapping PRs.
-              </p>
-            </div>
+            <Pill>Based on merged outsider PR patterns + repo PR template norms</Pill>
+          </div>
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            {rubric.map((item) => (
+              <div key={item.name} className="rounded-[1.4rem] border border-[#e4d8ca] bg-[#f8f2ea] p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold tracking-[-0.02em] text-[#20160f]">{item.name}</div>
+                  <Pill>{item.weight}</Pill>
+                </div>
+                <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-12 rounded-[2rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Observed repo patterns</div>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">What merged outsider PRs tend to look like</h2>
+          </div>
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            {mergedPatterns.map((item) => (
+              <div key={item.pr} className="rounded-[1.4rem] border border-[#e4d8ca] bg-[#f8f2ea] p-5">
+                <div className="text-sm font-semibold tracking-[-0.02em] text-[#20160f]">{item.pr} · {item.title}</div>
+                <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{item.takeaway}</p>
+              </div>
+            ))}
           </div>
         </section>
 
         <section className="mt-12">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Tier one</div>
-              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">Easy / low-hanging fruit</h2>
-            </div>
-          </div>
-          <div className="mt-6 space-y-6">
-            {easyCandidates.map((item) => (
-              <CandidateCard key={item.number} item={item} />
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-14">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Tier two</div>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">Moderate-sized work worth considering</h2>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Second pass</div>
+            <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#20160f]">Re-ranked candidates using the rubric</h2>
           </div>
           <div className="mt-6 space-y-6">
-            {moderateCandidates.map((item) => (
-              <CandidateCard key={item.number} item={item} />
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-14 rounded-[2rem] border border-[#d7cdbf] bg-[#fffdf8] p-6 shadow-[0_18px_60px_rgba(32,22,12,0.05)]">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b7158]">Adjacent open PRs to know about</div>
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {adjacentPrs.map((pr) => (
-              <a
-                key={pr.number}
-                href={pr.url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-[1.5rem] border border-[#e4d8ca] bg-[#f8f2ea] p-5 transition hover:border-[#20160f] hover:bg-[#fff7ee]"
-              >
-                <div className="text-sm font-semibold tracking-[-0.02em] text-[#20160f]">PR #{pr.number} · {pr.title}</div>
-                <p className="mt-2 text-[14px] leading-6 text-[#3b3128]">{pr.note}</p>
-              </a>
+            {rerankedCandidates.map((item) => (
+              <CandidateRow key={item.number} item={item} />
             ))}
           </div>
         </section>
 
         <section className="mt-14 rounded-[2rem] border border-[#20160f] bg-[#20160f] p-6 text-[#f7efe6] shadow-[0_24px_80px_rgba(32,22,12,0.18)]">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#d6c4b0]">My actual recommendation</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#d6c4b0]">Bottom line</div>
           <div className="mt-4 grid gap-6 lg:grid-cols-3">
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want a fast win</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Take #58522 or #58570. Both look like clean, credible contributions with good leverage and manageable verification.</p>
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want fast credibility</div>
+              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do #58522 or #58570. They best match the repository’s actual merge pattern: precise bug, bounded fix, obvious test.</p>
             </div>
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want something product-meaningful</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Take #58582 or #58571. They are more consequential and more “real product quality” than cosmetic polish, but still bounded enough to ship.</p>
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want useful but still safe</div>
+              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do #58574 or #58582. One is tiny and additive; the other is more meaningful but still shaped like a startup validation fix rather than a redesign.</p>
             </div>
             <div>
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want a respected medium feature</div>
-              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Take #58505. It is the most architectural item here that still feels crisply spec-able and testable.</p>
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-[#f4d7b1]">If you want to avoid traps</div>
+              <p className="mt-2 text-[15px] leading-7 text-[#f7efe6]">Do not start with the duplicate-message storm or the broader LiveSessionModelSwitch cluster unless you intentionally want a more subtle, multi-path reliability fix.</p>
             </div>
           </div>
         </section>
